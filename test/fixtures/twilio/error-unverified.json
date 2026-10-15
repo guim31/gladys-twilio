@@ -1,0 +1,6 @@
+{
+  "code": 21608,
+  "message": "The number +33639980002 is unverified. Trial accounts cannot send messages to unverified numbers; verify +33639980002 at twilio.com/user/account/phone-numbers/verified, or purchase a Twilio number to send messages to unverified numbers.",
+  "more_info": "https://www.twilio.com/docs/errors/21608",
+  "status": 400
+}

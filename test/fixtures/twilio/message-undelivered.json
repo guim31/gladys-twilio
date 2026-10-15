@@ -1,0 +1,24 @@
+{
+  "account_sid": "AC00000000000000000000000000000001",
+  "api_version": "2010-04-01",
+  "body": "Gladys: water leak in the cellar",
+  "date_created": "Thu, 15 Oct 2026 08:00:00 +0000",
+  "date_sent": "Thu, 15 Oct 2026 08:00:01 +0000",
+  "date_updated": "Thu, 15 Oct 2026 08:00:09 +0000",
+  "direction": "outbound-api",
+  "error_code": 30003,
+  "error_message": "Unreachable destination handset",
+  "from": "+15005550006",
+  "messaging_service_sid": null,
+  "num_media": "0",
+  "num_segments": "1",
+  "price": "-0.07900",
+  "price_unit": "USD",
+  "sid": "SM00000000000000000000000000000001",
+  "status": "undelivered",
+  "subresource_uris": {
+    "media": "/2010-04-01/Accounts/AC00000000000000000000000000000001/Messages/SM00000000000000000000000000000001/Media.json"
+  },
+  "to": "+33639980001",
+  "uri": "/2010-04-01/Accounts/AC00000000000000000000000000000001/Messages/SM00000000000000000000000000000001.json"
+}

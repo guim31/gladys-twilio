@@ -1,177 +1,1074 @@
 {
   "manifest_version": 1,
   "type": "device",
-  "name": "Demo Devices Template",
+  "name": "Twilio",
   "description": {
-    "en": "Starter template showing sensors, a switch, a dimmable light and a smart plug.",
-    "fr": "Template de démarrage : capteurs, interrupteur, lampe variable et prise connectée."
+    "en": "SMS and voice calls from your Gladys scenes through your Twilio account, with a cost guard.",
+    "fr": "SMS et appels vocaux depuis vos scènes Gladys via votre compte Twilio, avec un garde-fou de coût.",
+    "de": "SMS und Sprachanrufe aus deinen Gladys-Szenen über dein Twilio-Konto, mit Kostenschutz.",
+    "es": "SMS y llamadas de voz desde sus escenas de Gladys con su cuenta Twilio, con control de gastos."
   },
   "version": "1.0.0",
-  "docker_image": "ghcr.io/gladysassistant/integration-template-js:1.0.0",
+  "docker_image": "ghcr.io/guim31/gladys-twilio:1.0.0",
   "gladys_version": ">=5.1.0",
-  "cover_image": "https://raw.githubusercontent.com/GladysAssistant/integration-template-js/master/cover.png",
-  "categories": ["lighting", "security", "environment"],
-  "transports": ["local", "cloud"],
+  "cover_image": "https://raw.githubusercontent.com/guim31/gladys-twilio/main/cover.png",
+  "categories": ["notifications"],
+  "transports": ["cloud"],
   "config_schema": [
     {
       "key": "intro",
       "type": "section",
-      "label": { "en": "Getting started", "fr": "Pour commencer" },
+      "label": {
+        "en": "Your Twilio account",
+        "fr": "Votre compte Twilio",
+        "de": "Dein Twilio-Konto",
+        "es": "Su cuenta Twilio"
+      },
       "description": {
-        "en": "The demo weather station reads real data from the free Open-Meteo API: pick the coordinates to observe. No account, no API key.",
-        "fr": "La station météo de démonstration lit de vraies données via l'API gratuite Open-Meteo : choisissez les coordonnées à observer. Pas de compte, pas de clé d'API."
+        "en": "Twilio bills every SMS and every call to your account: set the cost guard below. The Account SID is on the home page of the Twilio console; an API key is safer than the Auth Token.",
+        "fr": "Twilio facture chaque SMS et chaque appel sur votre compte : réglez le garde-fou ci-dessous. L’Account SID est sur l’accueil de la console Twilio ; une clé d’API est plus sûre que l’Auth Token.",
+        "de": "Twilio berechnet jede SMS und jeden Anruf deinem Konto: Stell unten den Kostenschutz ein. Die Account SID steht auf der Startseite der Twilio-Konsole; ein API-Schlüssel ist sicherer als das Auth Token.",
+        "es": "Twilio factura cada SMS y cada llamada a su cuenta: ajuste el control de gastos más abajo. El Account SID está en la página de inicio de la consola de Twilio; una clave de API es más segura que el Auth Token."
       },
       "links": [
         {
-          "url": "https://open-meteo.com/en/docs",
-          "label": { "en": "Open-Meteo documentation", "fr": "Documentation Open-Meteo" }
+          "url": "https://console.twilio.com/",
+          "label": {
+            "en": "Twilio console",
+            "fr": "Console Twilio",
+            "de": "Twilio-Konsole",
+            "es": "Consola de Twilio"
+          }
+        },
+        {
+          "url": "https://www.twilio.com/docs/iam/api-keys",
+          "label": {
+            "en": "Create an API key",
+            "fr": "Créer une clé d’API",
+            "de": "API-Schlüssel erstellen",
+            "es": "Crear una clave de API"
+          }
         }
       ]
     },
     {
-      "key": "latitude",
-      "type": "number",
-      "label": { "en": "Latitude", "fr": "Latitude" },
-      "description": {
-        "en": "Latitude used for the demo weather sensor.",
-        "fr": "Latitude utilisée par le capteur météo de démonstration."
+      "key": "account_sid",
+      "type": "string",
+      "label": {
+        "en": "Account SID",
+        "fr": "Account SID",
+        "de": "Account SID",
+        "es": "Account SID"
       },
-      "placeholder": { "en": "e.g. 48.8566", "fr": "ex. 48.8566" },
+      "description": {
+        "en": "Starts with AC, then 32 characters.",
+        "fr": "Commence par AC, puis 32 caractères.",
+        "de": "Beginnt mit AC, dann 32 Zeichen.",
+        "es": "Empieza por AC y sigue con 32 caracteres."
+      },
+      "placeholder": {
+        "en": "AC…",
+        "fr": "AC…",
+        "de": "AC…",
+        "es": "AC…"
+      },
       "required": true,
-      "default": 48.8566,
-      "min": -90,
-      "max": 90
+      "default": ""
     },
     {
-      "key": "longitude",
-      "type": "number",
-      "label": { "en": "Longitude", "fr": "Longitude" },
-      "description": {
-        "en": "Longitude used for the demo weather sensor.",
-        "fr": "Longitude utilisée par le capteur météo de démonstration."
+      "key": "api_key_sid",
+      "type": "string",
+      "label": {
+        "en": "API key SID (recommended)",
+        "fr": "SID de la clé d’API (conseillé)",
+        "de": "SID des API-Schlüssels (empfohlen)",
+        "es": "SID de la clave de API (recomendado)"
       },
-      "placeholder": { "en": "e.g. 2.3522", "fr": "ex. 2.3522" },
-      "required": true,
-      "default": 2.3522,
-      "min": -180,
-      "max": 180
-    },
-    {
-      "key": "unit",
-      "type": "select",
-      "label": { "en": "Temperature unit", "fr": "Unité de température" },
+      "description": {
+        "en": "A Standard API key, starting with SK. Leave empty to use the Auth Token.",
+        "fr": "Une clé d’API Standard, qui commence par SK. Vide pour utiliser l’Auth Token.",
+        "de": "Ein Standard-API-Schlüssel, beginnt mit SK. Leer lassen, um das Auth Token zu verwenden.",
+        "es": "Una clave de API Standard, que empieza por SK. Déjelo vacío para usar el Auth Token."
+      },
+      "placeholder": {
+        "en": "SK…",
+        "fr": "SK…",
+        "de": "SK…",
+        "es": "SK…"
+      },
       "required": false,
-      "default": "celsius",
+      "default": ""
+    },
+    {
+      "key": "api_key_secret",
+      "type": "secret",
+      "label": {
+        "en": "API key secret",
+        "fr": "Secret de la clé d’API",
+        "de": "Secret des API-Schlüssels",
+        "es": "Secreto de la clave de API"
+      },
+      "description": {
+        "en": "Shown once by Twilio when the key is created.",
+        "fr": "Affiché une seule fois par Twilio à la création de la clé.",
+        "de": "Wird von Twilio nur einmal beim Erstellen des Schlüssels angezeigt.",
+        "es": "Twilio lo muestra una sola vez al crear la clave."
+      },
+      "required": false
+    },
+    {
+      "key": "auth_token",
+      "type": "secret",
+      "label": {
+        "en": "Auth Token",
+        "fr": "Auth Token",
+        "de": "Auth Token",
+        "es": "Auth Token"
+      },
+      "description": {
+        "en": "Only without an API key. It gives full access to the account.",
+        "fr": "Seulement sans clé d’API. Il donne un accès complet au compte.",
+        "de": "Nur ohne API-Schlüssel. Es gibt vollen Zugriff auf das Konto.",
+        "es": "Solo sin clave de API. Da acceso completo a la cuenta."
+      },
+      "required": false
+    },
+    {
+      "key": "from_number",
+      "type": "string",
+      "label": {
+        "en": "Sender",
+        "fr": "Expéditeur",
+        "de": "Absender",
+        "es": "Remitente"
+      },
+      "description": {
+        "en": "Your Twilio number in international format. A sender name or a Messaging Service SID (MG…) works for SMS only.",
+        "fr": "Votre numéro Twilio au format international. Un nom d’expéditeur ou un Messaging Service (MG…) ne sert qu’aux SMS.",
+        "de": "Deine Twilio-Nummer im internationalen Format. Ein Absendername oder ein Messaging Service (MG…) gilt nur für SMS.",
+        "es": "Su número Twilio en formato internacional. Un nombre de remitente o un Messaging Service (MG…) solo sirve para SMS."
+      },
+      "placeholder": {
+        "en": "e.g. +33612345678",
+        "fr": "ex. +33612345678",
+        "de": "z. B. +33612345678",
+        "es": "p. ej. +33612345678"
+      },
+      "required": true,
+      "default": ""
+    },
+    {
+      "key": "default_recipients",
+      "type": "string",
+      "label": {
+        "en": "Default recipients",
+        "fr": "Destinataires par défaut",
+        "de": "Standardempfänger",
+        "es": "Destinatarios por defecto"
+      },
+      "description": {
+        "en": "International numbers separated by commas, the most important first. Used when an action names none.",
+        "fr": "Numéros internationaux séparés par des virgules, le plus important en premier. Utilisés quand une action n’en donne pas.",
+        "de": "Internationale Nummern, durch Kommas getrennt, die wichtigste zuerst. Gelten, wenn eine Aktion keine nennt.",
+        "es": "Números internacionales separados por comas, el más importante primero. Se usan cuando una acción no indica ninguno."
+      },
+      "placeholder": {
+        "en": "+33612345678, +33698765432",
+        "fr": "+33612345678, +33698765432",
+        "de": "+4915112345678, +4917612345678",
+        "es": "+34612345678, +34698765432"
+      },
+      "required": false,
+      "default": ""
+    },
+    {
+      "key": "guard",
+      "type": "section",
+      "label": {
+        "en": "Cost guard",
+        "fr": "Garde-fou de coût",
+        "de": "Kostenschutz",
+        "es": "Control de gastos"
+      },
+      "description": {
+        "en": "Past these limits nothing is sent until the window frees up: a scene that loops cannot empty your account. Each recipient counts as one SMS. 0 blocks.",
+        "fr": "Au-delà de ces plafonds, rien n’est envoyé jusqu’à ce que la fenêtre se libère : une scène qui boucle ne peut pas vider votre compte. Chaque destinataire compte pour un SMS. 0 bloque.",
+        "de": "Über diesen Grenzen wird nichts gesendet, bis das Zeitfenster wieder frei ist: Eine Szene in einer Schleife kann dein Konto nicht leeren. Jeder Empfänger zählt als eine SMS. 0 sperrt.",
+        "es": "Por encima de estos límites no se envía nada hasta que se libere la ventana: una escena en bucle no puede vaciar su cuenta. Cada destinatario cuenta como un SMS. 0 bloquea."
+      }
+    },
+    {
+      "key": "max_sms_per_hour",
+      "type": "number",
+      "label": {
+        "en": "Most SMS per hour",
+        "fr": "SMS par heure, au plus",
+        "de": "Höchstens SMS pro Stunde",
+        "es": "Máximo de SMS por hora"
+      },
+      "required": false,
+      "default": 10,
+      "min": 0,
+      "max": 500
+    },
+    {
+      "key": "max_sms_per_day",
+      "type": "number",
+      "label": {
+        "en": "Most SMS per day",
+        "fr": "SMS par jour, au plus",
+        "de": "Höchstens SMS pro Tag",
+        "es": "Máximo de SMS por día"
+      },
+      "required": false,
+      "default": 30,
+      "min": 0,
+      "max": 2000
+    },
+    {
+      "key": "max_calls_per_hour",
+      "type": "number",
+      "label": {
+        "en": "Most calls per hour",
+        "fr": "Appels par heure, au plus",
+        "de": "Höchstens Anrufe pro Stunde",
+        "es": "Máximo de llamadas por hora"
+      },
+      "required": false,
+      "default": 5,
+      "min": 0,
+      "max": 100
+    },
+    {
+      "key": "max_calls_per_day",
+      "type": "number",
+      "label": {
+        "en": "Most calls per day",
+        "fr": "Appels par jour, au plus",
+        "de": "Höchstens Anrufe pro Tag",
+        "es": "Máximo de llamadas por día"
+      },
+      "required": false,
+      "default": 10,
+      "min": 0,
+      "max": 500
+    },
+    {
+      "key": "calls",
+      "type": "section",
+      "label": {
+        "en": "Calls and texts",
+        "fr": "Appels et textes",
+        "de": "Anrufe und Texte",
+        "es": "Llamadas y textos"
+      },
+      "description": {
+        "en": "A call reads the message out with a text-to-speech voice, in the language chosen in the action or below.",
+        "fr": "Un appel lit le message avec une voix de synthèse, dans la langue choisie dans l’action ou ci-dessous.",
+        "de": "Ein Anruf liest die Nachricht mit einer Sprachausgabe vor, in der Sprache der Aktion oder der unten gewählten.",
+        "es": "Una llamada lee el mensaje con una voz sintética, en el idioma elegido en la acción o más abajo."
+      }
+    },
+    {
+      "key": "voice",
+      "type": "select",
+      "label": {
+        "en": "Voice",
+        "fr": "Voix",
+        "de": "Stimme",
+        "es": "Voz"
+      },
+      "required": false,
+      "default": "female",
       "options": [
-        { "value": "celsius", "label": { "en": "Celsius", "fr": "Celsius" } },
-        { "value": "fahrenheit", "label": { "en": "Fahrenheit", "fr": "Fahrenheit" } }
+        {
+          "value": "female",
+          "label": {
+            "en": "Female",
+            "fr": "Féminine",
+            "de": "Weiblich",
+            "es": "Femenina"
+          }
+        },
+        {
+          "value": "male",
+          "label": {
+            "en": "Male",
+            "fr": "Masculine",
+            "de": "Männlich",
+            "es": "Masculina"
+          }
+        }
       ]
     },
     {
-      "key": "poll_frequency",
-      "type": "number",
-      "label": { "en": "Refresh interval (s)", "fr": "Intervalle de rafraîchissement (s)" },
+      "key": "ring_seconds",
+      "type": "select",
+      "label": {
+        "en": "Ring time",
+        "fr": "Durée de sonnerie",
+        "de": "Klingeldauer",
+        "es": "Tiempo de llamada"
+      },
       "description": {
-        "en": "How often sensors are polled, in seconds (one minute minimum).",
-        "fr": "Fréquence d'interrogation des capteurs, en secondes (une minute minimum)."
+        "en": "Hang up sooner to avoid the voicemail, which counts as answered.",
+        "fr": "Raccrocher plus tôt évite la messagerie, qui compte comme une réponse.",
+        "de": "Früher auflegen vermeidet die Mailbox, die als Antwort zählt.",
+        "es": "Colgar antes evita el buzón de voz, que cuenta como respuesta."
       },
       "required": false,
-      "default": 300,
-      "min": 60,
-      "max": 3600
+      "default": "30",
+      "options": [
+        {
+          "value": "15",
+          "label": {
+            "en": "15 s",
+            "fr": "15 s",
+            "de": "15 s",
+            "es": "15 s"
+          }
+        },
+        {
+          "value": "20",
+          "label": {
+            "en": "20 s",
+            "fr": "20 s",
+            "de": "20 s",
+            "es": "20 s"
+          }
+        },
+        {
+          "value": "30",
+          "label": {
+            "en": "30 s",
+            "fr": "30 s",
+            "de": "30 s",
+            "es": "30 s"
+          }
+        },
+        {
+          "value": "45",
+          "label": {
+            "en": "45 s",
+            "fr": "45 s",
+            "de": "45 s",
+            "es": "45 s"
+          }
+        },
+        {
+          "value": "60",
+          "label": {
+            "en": "60 s",
+            "fr": "60 s",
+            "de": "60 s",
+            "es": "60 s"
+          }
+        }
+      ]
+    },
+    {
+      "key": "language",
+      "type": "select",
+      "label": {
+        "en": "Language",
+        "fr": "Langue",
+        "de": "Sprache",
+        "es": "Idioma"
+      },
+      "description": {
+        "en": "Of the calls, the test SMS, the device names and the failure texts.",
+        "fr": "Des appels, du SMS de test, des noms de l’appareil et des textes d’échec.",
+        "de": "Der Anrufe, der Test-SMS, der Gerätenamen und der Fehlertexte.",
+        "es": "De las llamadas, del SMS de prueba, de los nombres del dispositivo y de los textos de fallo."
+      },
+      "required": false,
+      "default": "fr",
+      "options": [
+        {
+          "value": "en",
+          "label": {
+            "en": "English",
+            "fr": "Anglais",
+            "de": "Englisch",
+            "es": "Inglés"
+          }
+        },
+        {
+          "value": "fr",
+          "label": {
+            "en": "French",
+            "fr": "Français",
+            "de": "Französisch",
+            "es": "Francés"
+          }
+        },
+        {
+          "value": "de",
+          "label": {
+            "en": "German",
+            "fr": "Allemand",
+            "de": "Deutsch",
+            "es": "Alemán"
+          }
+        },
+        {
+          "value": "es",
+          "label": {
+            "en": "Spanish",
+            "fr": "Espagnol",
+            "de": "Spanisch",
+            "es": "Español"
+          }
+        }
+      ]
     }
   ],
   "actions": [
     {
-      "key": "test_weather",
-      "label": { "en": "Test the weather provider", "fr": "Tester le fournisseur météo" },
+      "key": "test_connection",
+      "label": {
+        "en": "Test the connection",
+        "fr": "Tester la connexion",
+        "de": "Verbindung testen",
+        "es": "Probar la conexión"
+      },
       "timeout_seconds": 30
     },
     {
-      "key": "identify",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
+      "key": "send_test_sms",
+      "label": {
+        "en": "Send a test SMS",
+        "fr": "Envoyer un SMS de test",
+        "de": "Test-SMS senden",
+        "es": "Enviar un SMS de prueba"
+      },
+      "timeout_seconds": 60,
       "fields": [
         {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
-          "required": true
+          "key": "to",
+          "type": "string",
+          "label": {
+            "en": "Recipient (empty: the default ones)",
+            "fr": "Destinataire (vide : ceux par défaut)",
+            "de": "Empfänger (leer: die Standardempfänger)",
+            "es": "Destinatario (vacío: los de por defecto)"
+          },
+          "placeholder": {
+            "en": "e.g. +33612345678",
+            "fr": "ex. +33612345678",
+            "de": "z. B. +33612345678",
+            "es": "p. ej. +33612345678"
+          }
         }
       ]
     }
   ],
   "scene_triggers": [
     {
-      "key": "motion_detected",
-      "label": { "en": "Motion detected", "fr": "Mouvement détecté" },
+      "key": "send_failed",
+      "label": {
+        "en": "SMS or call failed",
+        "fr": "SMS ou appel en échec",
+        "de": "SMS oder Anruf fehlgeschlagen",
+        "es": "SMS o llamada fallida"
+      },
       "description": {
-        "en": "A demo motion sensor saw a person or an animal move.",
-        "fr": "Un détecteur de démonstration a vu bouger une personne ou un animal."
+        "en": "An SMS or a call did not reach its recipient: refused, not delivered, not answered.",
+        "fr": "Un SMS ou un appel n’a pas atteint son destinataire : refusé, non distribué, sans réponse.",
+        "de": "Eine SMS oder ein Anruf hat den Empfänger nicht erreicht: abgelehnt, nicht zugestellt, keine Antwort.",
+        "es": "Un SMS o una llamada no llegó a su destinatario: rechazado, no entregado, sin respuesta."
       },
       "fields": [
         {
-          "key": "device",
+          "key": "kind",
           "type": "select",
-          "source": "devices",
-          "label": { "en": "Sensor", "fr": "Détecteur" }
+          "label": {
+            "en": "SMS or call",
+            "fr": "SMS ou appel",
+            "de": "SMS oder Anruf",
+            "es": "SMS o llamada"
+          },
+          "options": [
+            {
+              "value": "sms",
+              "label": {
+                "en": "SMS",
+                "fr": "SMS",
+                "de": "SMS",
+                "es": "SMS"
+              }
+            },
+            {
+              "value": "call",
+              "label": {
+                "en": "Call",
+                "fr": "Appel",
+                "de": "Anruf",
+                "es": "Llamada"
+              }
+            }
+          ]
         },
         {
-          "key": "target",
+          "key": "status",
           "type": "multi_select",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" },
+          "label": {
+            "en": "Outcome",
+            "fr": "Résultat",
+            "de": "Ergebnis",
+            "es": "Resultado"
+          },
           "options": [
-            { "value": "person", "label": { "en": "Person", "fr": "Personne" } },
-            { "value": "animal", "label": { "en": "Animal", "fr": "Animal" } }
+            {
+              "value": "refused",
+              "label": {
+                "en": "Refused by Twilio",
+                "fr": "Refusé par Twilio",
+                "de": "Von Twilio abgelehnt",
+                "es": "Rechazado por Twilio"
+              }
+            },
+            {
+              "value": "failed",
+              "label": {
+                "en": "Failed",
+                "fr": "Échoué",
+                "de": "Fehlgeschlagen",
+                "es": "Fallido"
+              }
+            },
+            {
+              "value": "undelivered",
+              "label": {
+                "en": "SMS not delivered",
+                "fr": "SMS non distribué",
+                "de": "SMS nicht zugestellt",
+                "es": "SMS no entregado"
+              }
+            },
+            {
+              "value": "no-answer",
+              "label": {
+                "en": "No answer",
+                "fr": "Pas de réponse",
+                "de": "Keine Antwort",
+                "es": "Sin respuesta"
+              }
+            },
+            {
+              "value": "busy",
+              "label": {
+                "en": "Line busy",
+                "fr": "Ligne occupée",
+                "de": "Leitung besetzt",
+                "es": "Línea ocupada"
+              }
+            },
+            {
+              "value": "canceled",
+              "label": {
+                "en": "Canceled",
+                "fr": "Annulé",
+                "de": "Abgebrochen",
+                "es": "Cancelado"
+              }
+            }
+          ]
+        },
+        {
+          "key": "recipient",
+          "type": "string",
+          "label": {
+            "en": "Recipient (optional)",
+            "fr": "Destinataire (facultatif)",
+            "de": "Empfänger (optional)",
+            "es": "Destinatario (opcional)"
+          },
+          "description": {
+            "en": "The number in international format, as in the action.",
+            "fr": "Le numéro au format international, comme dans l’action.",
+            "de": "Die Nummer im internationalen Format, wie in der Aktion.",
+            "es": "El número en formato internacional, como en la acción."
+          },
+          "placeholder": {
+            "en": "e.g. +33612345678",
+            "fr": "ex. +33612345678",
+            "de": "z. B. +33612345678",
+            "es": "p. ej. +33612345678"
+          }
+        }
+      ],
+      "variables": [
+        {
+          "key": "kind",
+          "type": "string",
+          "label": {
+            "en": "SMS or call",
+            "fr": "SMS ou appel",
+            "de": "SMS oder Anruf",
+            "es": "SMS o llamada"
+          }
+        },
+        {
+          "key": "recipient",
+          "type": "string",
+          "label": {
+            "en": "Recipient",
+            "fr": "Destinataire",
+            "de": "Empfänger",
+            "es": "Destinatario"
+          }
+        },
+        {
+          "key": "status",
+          "type": "string",
+          "label": {
+            "en": "Outcome",
+            "fr": "Résultat",
+            "de": "Ergebnis",
+            "es": "Resultado"
+          }
+        },
+        {
+          "key": "reason",
+          "type": "string",
+          "label": {
+            "en": "Reason",
+            "fr": "Raison",
+            "de": "Grund",
+            "es": "Motivo"
+          }
+        },
+        {
+          "key": "error_code",
+          "type": "number",
+          "label": {
+            "en": "Twilio error code",
+            "fr": "Code d’erreur Twilio",
+            "de": "Twilio-Fehlercode",
+            "es": "Código de error de Twilio"
+          }
+        }
+      ]
+    },
+    {
+      "key": "limit_reached",
+      "label": {
+        "en": "Cost guard limit reached",
+        "fr": "Plafond du garde-fou atteint",
+        "de": "Limit des Kostenschutzes erreicht",
+        "es": "Límite del control de gastos alcanzado"
+      },
+      "description": {
+        "en": "SMS or calls were held back by the limits of the configuration. Once per episode.",
+        "fr": "Des SMS ou appels ont été retenus par les plafonds de la configuration. Une fois par épisode.",
+        "de": "SMS oder Anrufe wurden von den Grenzen der Konfiguration zurückgehalten. Einmal pro Vorfall.",
+        "es": "Se retuvieron SMS o llamadas por los límites de la configuración. Una vez por episodio."
+      },
+      "fields": [
+        {
+          "key": "kind",
+          "type": "select",
+          "label": {
+            "en": "SMS or call",
+            "fr": "SMS ou appel",
+            "de": "SMS oder Anruf",
+            "es": "SMS o llamada"
+          },
+          "options": [
+            {
+              "value": "sms",
+              "label": {
+                "en": "SMS",
+                "fr": "SMS",
+                "de": "SMS",
+                "es": "SMS"
+              }
+            },
+            {
+              "value": "call",
+              "label": {
+                "en": "Call",
+                "fr": "Appel",
+                "de": "Anruf",
+                "es": "Llamada"
+              }
+            }
+          ]
+        },
+        {
+          "key": "window",
+          "type": "select",
+          "label": {
+            "en": "Limit",
+            "fr": "Plafond",
+            "de": "Limit",
+            "es": "Límite"
+          },
+          "options": [
+            {
+              "value": "hour",
+              "label": {
+                "en": "Per hour",
+                "fr": "Par heure",
+                "de": "Pro Stunde",
+                "es": "Por hora"
+              }
+            },
+            {
+              "value": "day",
+              "label": {
+                "en": "Per day",
+                "fr": "Par jour",
+                "de": "Pro Tag",
+                "es": "Por día"
+              }
+            }
           ]
         }
       ],
       "variables": [
         {
-          "key": "target",
+          "key": "kind",
           "type": "string",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" }
+          "label": {
+            "en": "SMS or call",
+            "fr": "SMS ou appel",
+            "de": "SMS oder Anruf",
+            "es": "SMS o llamada"
+          }
+        },
+        {
+          "key": "window",
+          "type": "string",
+          "label": {
+            "en": "Limit (hour or day)",
+            "fr": "Plafond (heure ou jour)",
+            "de": "Limit (Stunde oder Tag)",
+            "es": "Límite (hora o día)"
+          }
+        },
+        {
+          "key": "limit",
+          "type": "number",
+          "label": {
+            "en": "Limit value",
+            "fr": "Valeur du plafond",
+            "de": "Wert des Limits",
+            "es": "Valor del límite"
+          }
+        },
+        {
+          "key": "skipped",
+          "type": "number",
+          "label": {
+            "en": "Held back",
+            "fr": "Retenus",
+            "de": "Zurückgehalten",
+            "es": "Retenidos"
+          }
         }
       ]
     }
   ],
   "scene_actions": [
     {
-      "key": "identify_device",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "description": {
-        "en": "Make a device signal itself (the demo light blinks).",
-        "fr": "Fait se signaler un appareil (la lampe de démonstration clignote)."
+      "key": "send_sms",
+      "label": {
+        "en": "Send an SMS",
+        "fr": "Envoyer un SMS",
+        "de": "SMS senden",
+        "es": "Enviar un SMS"
       },
-      "timeout_seconds": 15,
+      "description": {
+        "en": "One SMS per recipient, billed by Twilio. The text accepts the scene variables.",
+        "fr": "Un SMS par destinataire, facturé par Twilio. Le texte accepte les variables de la scène.",
+        "de": "Eine SMS pro Empfänger, von Twilio berechnet. Der Text nimmt die Variablen der Szene an.",
+        "es": "Un SMS por destinatario, facturado por Twilio. El texto acepta las variables de la escena."
+      },
+      "timeout_seconds": 60,
       "fields": [
         {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
+          "key": "recipients",
+          "type": "string",
+          "label": {
+            "en": "Recipients (empty: the default ones)",
+            "fr": "Destinataires (vide : ceux par défaut)",
+            "de": "Empfänger (leer: die Standardempfänger)",
+            "es": "Destinatarios (vacío: los de por defecto)"
+          },
+          "description": {
+            "en": "International numbers separated by commas, 10 at most.",
+            "fr": "Numéros internationaux séparés par des virgules, 10 au plus.",
+            "de": "Internationale Nummern, durch Kommas getrennt, höchstens 10.",
+            "es": "Números internacionales separados por comas, 10 como máximo."
+          },
+          "placeholder": {
+            "en": "e.g. +33612345678",
+            "fr": "ex. +33612345678",
+            "de": "z. B. +33612345678",
+            "es": "p. ej. +33612345678"
+          }
+        },
+        {
+          "key": "message",
+          "type": "string",
+          "label": {
+            "en": "Message",
+            "fr": "Message",
+            "de": "Nachricht",
+            "es": "Mensaje"
+          },
+          "description": {
+            "en": "Up to 1600 characters; Twilio bills a long text as several SMS.",
+            "fr": "Jusqu’à 1600 caractères ; Twilio facture un long texte comme plusieurs SMS.",
+            "de": "Bis zu 1600 Zeichen; Twilio berechnet einen langen Text als mehrere SMS.",
+            "es": "Hasta 1600 caracteres; Twilio factura un texto largo como varios SMS."
+          },
           "required": true
         }
       ],
       "outputs": [
         {
-          "key": "signalled",
+          "key": "sent",
+          "type": "number",
+          "label": {
+            "en": "SMS sent",
+            "fr": "SMS envoyés",
+            "de": "Gesendete SMS",
+            "es": "SMS enviados"
+          }
+        },
+        {
+          "key": "skipped",
+          "type": "number",
+          "label": {
+            "en": "Held back by the cost guard",
+            "fr": "Retenus par le garde-fou",
+            "de": "Vom Kostenschutz zurückgehalten",
+            "es": "Retenidos por el control de gastos"
+          }
+        },
+        {
+          "key": "failed",
+          "type": "number",
+          "label": {
+            "en": "Refused by Twilio",
+            "fr": "Refusés par Twilio",
+            "de": "Von Twilio abgelehnt",
+            "es": "Rechazados por Twilio"
+          }
+        }
+      ]
+    },
+    {
+      "key": "make_call",
+      "label": {
+        "en": "Make a call",
+        "fr": "Passer un appel",
+        "de": "Anruf tätigen",
+        "es": "Hacer una llamada"
+      },
+      "description": {
+        "en": "Calls one number and reads the message out. Can wait to know whether someone answered.",
+        "fr": "Appelle un numéro et lit le message. Peut attendre de savoir si quelqu’un a répondu.",
+        "de": "Ruft eine Nummer an und liest die Nachricht vor. Kann warten, ob jemand abgenommen hat.",
+        "es": "Llama a un número y lee el mensaje. Puede esperar a saber si alguien contestó."
+      },
+      "timeout_seconds": 120,
+      "fields": [
+        {
+          "key": "recipient",
+          "type": "string",
+          "label": {
+            "en": "Number (empty: first default recipient)",
+            "fr": "Numéro (vide : 1er destinataire par défaut)",
+            "de": "Nummer (leer: erster Standardempfänger)",
+            "es": "Número (vacío: primer destinatario)"
+          },
+          "placeholder": {
+            "en": "e.g. +33612345678",
+            "fr": "ex. +33612345678",
+            "de": "z. B. +33612345678",
+            "es": "p. ej. +33612345678"
+          }
+        },
+        {
+          "key": "message",
+          "type": "string",
+          "label": {
+            "en": "Message read out",
+            "fr": "Message lu",
+            "de": "Vorgelesene Nachricht",
+            "es": "Mensaje leído"
+          },
+          "description": {
+            "en": "Up to 1000 characters. Accepts the scene variables.",
+            "fr": "Jusqu’à 1000 caractères. Accepte les variables de la scène.",
+            "de": "Bis zu 1000 Zeichen. Nimmt die Variablen der Szene an.",
+            "es": "Hasta 1000 caracteres. Acepta las variables de la escena."
+          },
+          "required": true
+        },
+        {
+          "key": "language",
+          "type": "select",
+          "label": {
+            "en": "Language (empty: the configuration’s)",
+            "fr": "Langue (vide : celle de la configuration)",
+            "de": "Sprache (leer: die der Konfiguration)",
+            "es": "Idioma (vacío: el de la configuración)"
+          },
+          "options": [
+            {
+              "value": "en",
+              "label": {
+                "en": "English",
+                "fr": "Anglais",
+                "de": "Englisch",
+                "es": "Inglés"
+              }
+            },
+            {
+              "value": "fr",
+              "label": {
+                "en": "French",
+                "fr": "Français",
+                "de": "Französisch",
+                "es": "Francés"
+              }
+            },
+            {
+              "value": "de",
+              "label": {
+                "en": "German",
+                "fr": "Allemand",
+                "de": "Deutsch",
+                "es": "Alemán"
+              }
+            },
+            {
+              "value": "es",
+              "label": {
+                "en": "Spanish",
+                "fr": "Espagnol",
+                "de": "Spanisch",
+                "es": "Español"
+              }
+            }
+          ]
+        },
+        {
+          "key": "voice",
+          "type": "select",
+          "label": {
+            "en": "Voice (empty: the configuration’s)",
+            "fr": "Voix (vide : celle de la configuration)",
+            "de": "Stimme (leer: die der Konfiguration)",
+            "es": "Voz (vacío: la de la configuración)"
+          },
+          "options": [
+            {
+              "value": "female",
+              "label": {
+                "en": "Female",
+                "fr": "Féminine",
+                "de": "Weiblich",
+                "es": "Femenina"
+              }
+            },
+            {
+              "value": "male",
+              "label": {
+                "en": "Male",
+                "fr": "Masculine",
+                "de": "Männlich",
+                "es": "Masculina"
+              }
+            }
+          ]
+        },
+        {
+          "key": "repeat",
+          "type": "number",
+          "label": {
+            "en": "Times the message is read",
+            "fr": "Nombre de lectures",
+            "de": "Anzahl der Wiederholungen",
+            "es": "Veces que se lee"
+          },
+          "default": 2,
+          "min": 1,
+          "max": 3
+        },
+        {
+          "key": "wait_for_answer",
           "type": "boolean",
-          "label": { "en": "Device signalled", "fr": "Appareil signalé" }
+          "label": {
+            "en": "Wait for the answer",
+            "fr": "Attendre la réponse",
+            "de": "Auf die Antwort warten",
+            "es": "Esperar la respuesta"
+          },
+          "description": {
+            "en": "The scene waits until the call is answered or not (ring time plus a few seconds).",
+            "fr": "La scène attend de savoir si l’appel a abouti (durée de sonnerie plus quelques secondes).",
+            "de": "Die Szene wartet, bis feststeht, ob abgenommen wurde (Klingeldauer plus ein paar Sekunden).",
+            "es": "La escena espera a saber si se contestó (tiempo de llamada más unos segundos)."
+          },
+          "default": true
+        }
+      ],
+      "outputs": [
+        {
+          "key": "answered",
+          "type": "boolean",
+          "label": {
+            "en": "Answered",
+            "fr": "Décroché",
+            "de": "Abgenommen",
+            "es": "Contestada"
+          }
+        },
+        {
+          "key": "status",
+          "type": "string",
+          "label": {
+            "en": "Call outcome",
+            "fr": "Résultat de l’appel",
+            "de": "Ergebnis des Anrufs",
+            "es": "Resultado de la llamada"
+          }
+        },
+        {
+          "key": "call_sid",
+          "type": "string",
+          "label": {
+            "en": "Call SID",
+            "fr": "SID de l’appel",
+            "de": "SID des Anrufs",
+            "es": "SID de la llamada"
+          }
         }
       ]
     }
   ],
   "widgets": [
     {
-      "key": "demo_status",
-      "label": { "en": "Demo status", "fr": "État de la démo" },
-      "description": {
-        "en": "Live temperature and plug power, plug connection and observed location.",
-        "fr": "Température et puissance en direct, connexion de la prise, position observée."
+      "key": "twilio_account",
+      "label": {
+        "en": "Twilio",
+        "fr": "Twilio",
+        "de": "Twilio",
+        "es": "Twilio"
       },
-      "icon": "activity",
-      "action_timeout_seconds": 15
+      "description": {
+        "en": "Balance, SMS and calls of the day against the limits, last failure.",
+        "fr": "Solde, SMS et appels du jour face aux plafonds, dernier échec.",
+        "de": "Guthaben, SMS und Anrufe des Tages gegenüber den Limits, letzter Fehler.",
+        "es": "Saldo, SMS y llamadas del día frente a los límites, último fallo."
+      },
+      "icon": "message-square"
     }
   ]
 }

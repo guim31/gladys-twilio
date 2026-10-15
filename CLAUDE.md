@@ -16,12 +16,13 @@ its only runtime dependency. It started from the official JavaScript template.
 ```bash
 npm install
 npm test                                  # node --test, the built-in runner
-node --test test/devices.test.js          # one file
-node --test --test-name-pattern "plug"    # tests whose name matches
+node --test test/hub.test.js              # one file
+node --test --test-name-pattern "call"    # tests whose name matches
 npm run lint                              # ESLint
 npm run format:check                      # Prettier, as the CI runs it
 npm run format                            # Prettier, fix in place
 npx github:GladysAssistant/integration-store .   # store admission checks
+node scripts/probe.mjs                    # real Twilio API, read only (needs network)
 ```
 
 The CI (`.github/workflows/ci.yml`) runs `format:check`, `lint` and `test` on
@@ -31,16 +32,24 @@ pushing.
 ## Architecture
 
 ```
-index.js                          SDK wiring only: handlers registered before connect()
-src/devices/index.js              registry of the device blueprints + dispatch helpers
-src/devices/<type>.js             one device type per file (buildDevice, onPoll, onSetValue...)
+index.js                          SDK wiring only (registerHandlers + shutdown)
+src/app.js                        registers every SDK handler on a Gladys client (tests drive the same)
+src/hub.js                        TwilioHub: refresh timer, SMS, calls, cost guard, follow-ups, states, events
+src/twilio/client.js              Twilio REST client (2010-04-01), error kinds, masking of SIDs and numbers
+src/twilio/http.js                the only network access (fetch + timeout), the `request` test seam
+src/twilio/twiml.js               inline TwiML of a call: <Say> with Polly voices, XML-escaped, ≤ 4000 chars
+src/usage.js                      cost guard counters (rolling hour, local calendar day)
+src/phone.js                      E.164 parsing, sender kinds, masking
+src/devices.js                    the "Twilio account" device (feature keys, names in 4 languages)
 src/scenes.js                     scene action handlers (manifest `scene_actions`)
-src/widgets.js                    dashboard widget handlers (manifest `widgets`)
+src/widgets.js                    dashboard widget (manifest `widgets`), pure content builder
+src/texts.js                      every text sent to Gladys, in en/fr/de/es
 src/config.js                     DEFAULT_CONFIG (mirrors the manifest defaults) + normalization
-src/weather.js                    example driver (Open-Meteo)
+src/store.js, src/issues.js       /data persistence; repeated failures logged once
+scripts/probe.mjs                 real API probe with made-up credentials (expects 401, sends nothing)
 gladys-assistant-integration.json manifest: name, config_schema, actions, image...
-docs/en.md, docs/fr.md            user documentation, re-hosted by Gladys (mandatory)
-test/                             node --test, against the SDK's fake Gladys (integration-sdk/testing)
+docs/{en,fr,de,es}.md             user documentation, re-hosted by Gladys, same sections
+test/                             node --test, SDK fake Gladys + test/helpers/fakeTwilio.js
 .github/scripts/release.mjs       release helpers (manifest bump, changelog), tested in test/
 ```
 
@@ -70,12 +79,45 @@ test/                             node --test, against the SDK's fake Gladys (in
   `type: "provider"`: 5.1.0). `test/manifest.test.js` ties the manifest to the
   code (defaults, action, scene and widget handlers): change both sides
   together.
-- **User-facing text** is bilingual (English and French): action messages,
-  manifest texts, and `docs/en.md` / `docs/fr.md`, kept in sync.
+- **User-facing text** exists in English, French, German ("du") and Spanish
+  ("usted"): action messages, manifest texts, feature names, widget texts and
+  `docs/{en,fr,de,es}.md`, kept in sync. `test/i18n.test.js` enforces it.
 - **Style.** Prettier formats, ESLint catches mistakes. Comments explain why,
   in English. Tests never touch the network.
 
 ---
+
+# Twilio : propre à cette intégration
+
+- **API** : REST `https://api.twilio.com/2010-04-01/Accounts/{AccountSid}/…`, authentification
+  Basic, soit `AccountSid:AuthToken`, soit `SK…:secret` d'une clé d'API (préférée, révocable). Les
+  POST sont en `application/x-www-form-urlencoded`. Erreurs : corps JSON `{ code, message,
+more_info, status }` ; la table `CODE_KINDS` de `src/twilio/client.js` mappe les codes utiles
+  (20003 identifiants, 21608/21219 compte d'essai, 21408/21215 permissions géographiques, 21610
+  STOP…).
+- **Le message d'erreur de Twilio cite les numéros en clair** (« The number +33… is unverified ») :
+  tout passe par `sanitize()` avant d'entrer dans une erreur ou un journal. **`GET /Accounts/{sid}`
+  renvoie l'`auth_token`** : ne jamais journaliser une réponse brute.
+- **Appel** : TwiML en ligne (paramètre `Twiml`, 4000 caractères au plus), jamais d'URL à faire
+  lire par Twilio (pas de twimlets comme Home Assistant : HTTP en clair, service tiers). `Timeout`
+  = durée de sonnerie, `TimeLimit` = 180 s pour borner le coût d'une messagerie restée en ligne.
+  Une messagerie qui décroche donne `in-progress`/`completed` : compté comme décroché.
+- **Envoi asynchrone** : Twilio répond `queued` (ou `accepted` via Messaging Service) ; le
+  résultat se relit (`GET Messages/{sid}`, `GET Calls/{sid}`) : SMS à +1, +5, +20 min, appel après
+  la sonnerie. `sent` est final pour les opérateurs sans accusé de réception. Pas de
+  `StatusCallback` : il faudrait une URL publique.
+- **SMS entrants non pris en charge** : il faut une URL publique, et le relais de webhooks de Gladys
+  Plus ne transmet pas les en-têtes, donc pas `X-Twilio-Signature` : l'expéditeur ne serait pas
+  authentifiable. Ne pas l'ajouter sans signature vérifiable.
+- **Garde-fou** : un créneau est réservé de façon synchrone avant la requête (deux scènes
+  simultanées ne prennent pas le dernier), rendu si Twilio refuse (pas facturé), gardé si la
+  réponse s'est perdue (peut-être facturé). `limit_reached` ne part qu'une fois par épisode.
+- **Type `communication`** (Gladys 5.2, `messaging.receive: false`) : il ferait de Twilio un canal
+  des messages de Gladys, par utilisateur, mais sans appareil, sans écrans Appareils/Découverte. Le
+  brief demandait un appareil « Compte Twilio » et des actions de scène : type `device`. À
+  rediscuter si Guilhem veut que les messages système de Gladys partent en SMS.
+- La session de développement n'a pas d'accès réseau à `api.twilio.com` (refus du proxy) :
+  `scripts/probe.mjs` est à lancer depuis une machine qui a le réseau.
 
 # Notes du mainteneur (guim31)
 

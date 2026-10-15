@@ -1,45 +1,127 @@
 // -----------------------------------------------------------------------------
-// Integration configuration.
-//
-// The configuration is filled in by the user in Gladys, from the `config_schema`
-// declared in `gladys-assistant-integration.json`. The SDK fetches it for you
-// (`gladys.getConfig()`) and notifies you of every change through
-// `gladys.onConfigUpdated()`.
-//
-// This module only provides defaults and normalizes the received object, so the
-// rest of the code never has to deal with `undefined`.
+// Integration configuration: defaults (they mirror the `default` values of the
+// manifest `config_schema`, see test/manifest.test.js) and normalization, so
+// the rest of the code never deals with strings, blanks or `undefined`.
 // -----------------------------------------------------------------------------
 
-// Defaults: they MUST stay consistent with the `default` values declared in the
-// `config_schema` of the manifest.
-export const DEFAULT_CONFIG = {
-  latitude: 48.8566, // Paris
-  longitude: 2.3522,
-  unit: 'celsius', // 'celsius' | 'fahrenheit'
-  // Seconds between two reads of the polled sensors. Gladys polls at most once
-  // a minute: slower intervals are applied by skipping polls (see
-  // createPoller in src/devices/index.js).
-  poll_frequency: 300,
-  // Reserved key (NOT in config_schema): because the manifest declares both
-  // 'local' and 'cloud' in its `transports` field, Gladys shows a standard
-  // "Prefer the local connection" toggle and sends the user's choice here.
-  // Read-only for the integration; defaults to true.
-  GLADYS_PREFER_LOCAL: true,
+import { parseRecipients, parseSender } from './phone.js';
+
+export const LANGUAGES = ['en', 'fr', 'de', 'es'];
+
+export const VOICES = ['female', 'male'];
+
+// How long a call rings before Twilio gives up, in seconds.
+export const RING_SECONDS = ['15', '20', '30', '45', '60'];
+
+// The cost guard: sends allowed per rolling hour and per calendar day.
+export const LIMITS = {
+  max_sms_per_hour: { min: 0, max: 500 },
+  max_sms_per_day: { min: 0, max: 2000 },
+  max_calls_per_hour: { min: 0, max: 100 },
+  max_calls_per_day: { min: 0, max: 500 },
 };
 
+export const DEFAULT_CONFIG = {
+  account_sid: '',
+  auth_token: '',
+  api_key_sid: '',
+  api_key_secret: '',
+  from_number: '',
+  default_recipients: '',
+  max_sms_per_hour: 10,
+  max_sms_per_day: 30,
+  max_calls_per_hour: 5,
+  max_calls_per_day: 10,
+  voice: 'female',
+  ring_seconds: '30',
+  language: 'fr',
+};
+
+const ACCOUNT_SID = /^AC[0-9a-f]{32}$/i;
+const API_KEY_SID = /^SK[0-9a-f]{32}$/i;
+
+/** What is missing or wrong in the configuration (connection status, test). */
+export const CONFIG_PROBLEMS = Object.freeze({
+  ACCOUNT_SID: 'account_sid',
+  CREDENTIALS: 'credentials',
+  API_KEY_SID: 'api_key_sid',
+  SENDER: 'sender',
+});
+
+function limit(source, key) {
+  const raw = source[key];
+  const number =
+    typeof raw === 'number' ? raw : typeof raw === 'string' && raw.trim() ? Number(raw) : NaN;
+  if (!Number.isFinite(number)) {
+    return DEFAULT_CONFIG[key];
+  }
+  const { min, max } = LIMITS[key];
+  return Math.min(max, Math.max(min, Math.floor(number)));
+}
+
 /**
- * Merge the user config with the defaults.
- * @param {Record<string, unknown>} raw config returned by the SDK
+ * @param {Record<string, unknown>} raw the configuration returned by the SDK
  */
 export function normalizeConfig(raw = {}) {
+  const source = raw && typeof raw === 'object' ? raw : {};
+  const text = (key) => (typeof source[key] === 'string' ? source[key].trim() : '');
+  const pick = (key, list) => {
+    const value = source[key] === undefined || source[key] === null ? '' : String(source[key]);
+    return list.includes(value) ? value : DEFAULT_CONFIG[key];
+  };
+
+  const problems = [];
+  const typedSid = text('account_sid');
+  const accountSid = ACCOUNT_SID.test(typedSid) ? `AC${typedSid.slice(2).toLowerCase()}` : null;
+  if (!accountSid) {
+    problems.push(CONFIG_PROBLEMS.ACCOUNT_SID);
+  }
+
+  // An API key (recommended: revocable, no access to the account settings)
+  // wins over the Auth Token when both are filled in.
+  const keySid = text('api_key_sid');
+  const keySecret = text('api_key_secret');
+  const authToken = text('auth_token');
+  let credentials = null;
+  if (keySid || keySecret) {
+    if (!API_KEY_SID.test(keySid)) {
+      problems.push(CONFIG_PROBLEMS.API_KEY_SID);
+    } else if (keySecret) {
+      credentials = { username: `SK${keySid.slice(2).toLowerCase()}`, password: keySecret };
+    }
+  }
+  if (!credentials && authToken && accountSid && !problems.includes(CONFIG_PROBLEMS.API_KEY_SID)) {
+    credentials = { username: accountSid, password: authToken };
+  }
+  if (!credentials && !problems.includes(CONFIG_PROBLEMS.API_KEY_SID)) {
+    problems.push(CONFIG_PROBLEMS.CREDENTIALS);
+  }
+
+  const sender = parseSender(text('from_number'));
+  if (!sender) {
+    problems.push(CONFIG_PROBLEMS.SENDER);
+  }
+
+  const recipients = parseRecipients(text('default_recipients'));
+
   return {
-    ...DEFAULT_CONFIG,
-    ...raw,
-    // Force the types: config may arrive as strings from a form.
-    latitude: Number(raw.latitude ?? DEFAULT_CONFIG.latitude),
-    longitude: Number(raw.longitude ?? DEFAULT_CONFIG.longitude),
-    poll_frequency: Number(raw.poll_frequency ?? DEFAULT_CONFIG.poll_frequency),
-    // The preference is a boolean; anything but an explicit false means true.
-    GLADYS_PREFER_LOCAL: raw.GLADYS_PREFER_LOCAL !== false,
+    accountSid,
+    credentials,
+    // Which secret is in use, for the reports (never the secret itself).
+    authMode: credentials ? (credentials.username === accountSid ? 'auth_token' : 'api_key') : null,
+    sender,
+    defaultRecipients: recipients.valid,
+    invalidDefaultRecipients: recipients.invalid,
+    limits: {
+      sms: { hour: limit(source, 'max_sms_per_hour'), day: limit(source, 'max_sms_per_day') },
+      call: { hour: limit(source, 'max_calls_per_hour'), day: limit(source, 'max_calls_per_day') },
+    },
+    voice: pick('voice', VOICES),
+    ringSeconds: Number(pick('ring_seconds', RING_SECONDS)),
+    language: LANGUAGES.includes(source.language) ? source.language : DEFAULT_CONFIG.language,
+    problems,
   };
 }
+
+/** Enough to talk to Twilio (an account and its credentials). */
+export const canConnect = (config) => Boolean(config.accountSid && config.credentials);

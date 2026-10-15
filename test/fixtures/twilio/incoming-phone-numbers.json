@@ -1,0 +1,20 @@
+{
+  "end": 0,
+  "first_page_uri": "/2010-04-01/Accounts/AC00000000000000000000000000000001/IncomingPhoneNumbers.json?PhoneNumber=%2B15005550006&PageSize=1&Page=0",
+  "incoming_phone_numbers": [
+    {
+      "account_sid": "AC00000000000000000000000000000001",
+      "capabilities": { "mms": true, "sms": true, "voice": true, "fax": false },
+      "friendly_name": "(500) 555-0006",
+      "phone_number": "+15005550006",
+      "sid": "PN00000000000000000000000000000001",
+      "status": "in-use"
+    }
+  ],
+  "next_page_uri": null,
+  "page": 0,
+  "page_size": 1,
+  "previous_page_uri": null,
+  "start": 0,
+  "uri": "/2010-04-01/Accounts/AC00000000000000000000000000000001/IncomingPhoneNumbers.json?PhoneNumber=%2B15005550006&PageSize=1&Page=0"
+}
