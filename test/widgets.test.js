@@ -1,77 +1,103 @@
+// -----------------------------------------------------------------------------
+// The dashboard widget: rendered by the core exactly as sent (the SDK's
+// validateWidgetContent finds nothing to drop), in every state and language.
+// -----------------------------------------------------------------------------
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { validateWidgetContent } from '@gladysassistant/integration-sdk';
-import { createFakeGladys } from '@gladysassistant/integration-sdk/testing';
-import { buildDiscoveredDevices } from '../src/devices/index.js';
-import { simulateLanSession } from '../src/devices/plug.js';
-import { DEMO_STATUS_WIDGET, WIDGETS, refreshWidgets } from '../src/widgets.js';
-import { normalizeConfig } from '../src/config.js';
+import { WIDGET_KEY } from '../src/hub.js';
+import { buildContent } from '../src/widgets.js';
+import { PHONE_2 } from './helpers/fakeTwilio.js';
+import { BASE_CONFIG, FakeTwilio, createWorld } from './helpers/world.js';
 
-const gladys = createFakeGladys();
-const config = normalizeConfig();
-const demoStatus = WIDGETS[DEMO_STATUS_WIDGET];
+async function content(t, options, language = 'en') {
+  const world = await createWorld({ created: true, ...options });
+  t.after(() => world.app.stop());
+  if (options?.before) {
+    await options.before(world);
+  }
+  const ack = await world.fake.widgetGet(WIDGET_KEY, { settings: {}, language });
+  assert.equal(ack.success, true, ack.error);
+  return ack.data.content;
+}
 
-// What the SDK passes to onWidgetGet, plus the config index.js adds.
-const getContent = (cfg = config) =>
-  demoStatus.get(gladys, { settings: {}, language: 'en', units: 'metric', config: cfg });
+const status = (c) => c.components.find((component) => component.type === 'status');
 
-test('the demo_status content is rendered exactly as sent', async () => {
-  // [] = nothing the core would drop, truncate or trim to the content budget.
-  assert.deepEqual(validateWidgetContent(await getContent()), []);
+test('a healthy account: balance, usage against the limits, no failure', async (t) => {
+  const c = await content(t, {
+    before: (w) => w.hub.sendSms({ message: 'Hi', source: 'scene' }),
+  });
+  assert.deepEqual(validateWidgetContent(c), []);
+  const [balance, sms, calls] = c.components;
+  assert.deepEqual([balance.value, balance.unit], ['14.62', 'USD']);
+  assert.equal(sms.value, '2/30');
+  assert.equal(calls.value, '0/10');
+  assert.deepEqual(
+    status(c).items.map((item) => item.value),
+    ['Twilio (paid)', 'None'],
+  );
+  assert.equal(c.components.at(-1).link.url, 'https://console.twilio.com/');
 });
 
-test('the degraded plug connection content is valid too', async () => {
-  simulateLanSession(false);
-  try {
-    const content = await getContent();
-    assert.deepEqual(validateWidgetContent(content), []);
-    const status = content.components.find((component) => component.type === 'status');
-    assert.ok(
-      status.items.some((item) => item.color === 'warning'),
-      'degraded shows a warning',
+test('a trial account with a failure, in every language', async (t) => {
+  for (const language of ['en', 'fr', 'de', 'es']) {
+    const c = await content(
+      t,
+      {
+        twilio: new FakeTwilio({ type: 'Trial', verified: [] }),
+        before: (w) => w.hub.sendSms({ recipients: PHONE_2, message: 'Hi', source: 'scene' }),
+      },
+      language,
     );
-  } finally {
-    simulateLanSession(true);
+    assert.deepEqual(validateWidgetContent(c), [], language);
+    const [account, failure] = status(c).items;
+    assert.equal(account.color, 'warning');
+    assert.ok(failure.value.startsWith('+336******02 · '), failure.value);
+    assert.ok(failure.value.length <= 40);
   }
 });
 
-test('the live tiles reference features the integration publishes', async () => {
-  const featureIds = new Set(
-    buildDiscoveredDevices(gladys, config).flatMap((device) =>
-      device.features.map((feature) => feature.external_id),
-    ),
-  );
-  const liveTiles = (await getContent()).components.filter((c) => c.device_feature);
-  assert.ok(liveTiles.length > 0, 'the template demonstrates a device-bound tile');
-  for (const tile of liveTiles) {
-    assert.ok(featureIds.has(tile.device_feature), `unknown feature ${tile.device_feature}`);
-  }
+test('a limit reached shows in color; an unreadable balance has no tile', async (t) => {
+  const c = await content(t, {
+    twilio: new FakeTwilio({ balanceForbidden: true }),
+    config: { ...BASE_CONFIG, max_sms_per_day: 2 },
+    before: (w) => w.hub.sendSms({ message: 'Hi', source: 'scene' }),
+  });
+  assert.deepEqual(validateWidgetContent(c), []);
+  assert.equal(c.components[0].label, 'SMS today');
+  assert.equal(c.components[0].color, 'warning');
 });
 
-test('every button action of the content is handled and answers a short toast', async () => {
-  const buttons = (await getContent()).components.filter((c) => c.type === 'button' && c.action);
-  assert.ok(buttons.length > 0, 'the template demonstrates a widget action');
-  for (const { action } of buttons) {
-    const message = await demoStatus.action(gladys, {
-      actionKey: action.key,
-      params: action.params ?? {},
-      settings: {},
-      config,
-    });
-    assert.ok(message.en, 'the toast carries at least the mandatory `en` text');
-    assert.ok(message.en.length <= 200, 'toasts are capped at 200 characters');
-  }
+test('Twilio unreachable, and not configured', async (t) => {
+  const down = await content(t, {
+    before: async (w) => {
+      w.twilio.online = false;
+      await w.hub.refresh();
+    },
+  });
+  assert.deepEqual(validateWidgetContent(down), []);
+  assert.equal(status(down).items[0].value, 'Twilio unreachable');
+  assert.equal(status(down).items[0].color, 'danger');
+
+  const unconfigured = await content(t, { config: { language: 'fr' } }, 'fr');
+  assert.deepEqual(validateWidgetContent(unconfigured), []);
+  assert.match(unconfigured.components[0].text, /Account SID/);
 });
 
-test('an unknown widget action fails, so the user sees the error', async () => {
-  await assert.rejects(
-    demoStatus.action(gladys, { actionKey: 'unknown', params: {}, settings: {}, config }),
-    /Unknown widget action/,
-  );
-});
-
-test('refreshWidgets nudges every widget', () => {
-  const fresh = createFakeGladys();
-  refreshWidgets(fresh);
-  assert.deepEqual(fresh.fake.widgetRefreshes, Object.keys(WIDGETS));
+test('the content is pure: the same view gives the same content', () => {
+  const view = {
+    configured: true,
+    account: { type: 'Full', name: 'x', status: 'active' },
+    error: null,
+    balance: { amount: -0.5, currency: 'EUR' },
+    sms: { today: 0, limit: 0 },
+    calls: { today: 0, limit: 5 },
+    lastFailure: null,
+  };
+  const c = buildContent(view, 'es');
+  assert.deepEqual(c, buildContent(view, 'es'));
+  assert.deepEqual(validateWidgetContent(c), []);
+  assert.equal(c.components[0].color, 'danger');
+  assert.equal(c.components[1].color, 'warning', '0/0: nothing can be sent');
 });
