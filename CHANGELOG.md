@@ -10,6 +10,8 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-10-15
+
 ### Added
 
 - Scene action "Send an SMS": one SMS per recipient (up to 10) through your
@@ -29,4 +31,5 @@ the notes of the version's GitHub Release.
 - "Test the connection" and "Send a test SMS" buttons in the configuration.
 - Documentation in English, French, German and Spanish.
 
-[Unreleased]: https://github.com/guim31/gladys-twilio/commits/main
+[Unreleased]: https://github.com/guim31/gladys-twilio/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/guim31/gladys-twilio/releases/tag/v1.0.1
